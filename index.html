@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EcoIA — Detector de Plagas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js"></script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ══ CURSOR PERSONALIZADO ══ -->
+  <div class="cursor" id="cursor"></div>
+  <div class="cursor-follower" id="cursorFollower"></div>
+
+  <!-- ══ CANVAS OCULTO TF ══ -->
+  <canvas id="hiddenCanvas" style="display:none;"></canvas>
+
+  <!-- ══ NOISE TEXTURE OVERLAY ══ -->
+  <div class="noise-overlay"></div>
+
+  <!-- ══ PARTÍCULAS ORGÁNICAS ══ -->
+  <div class="particles" id="particles"></div>
+
+  <!-- ══════════════════════════════════════════
+       PANTALLA 1 — SPLASH / INTRO
+  ══════════════════════════════════════════ -->
+  <div class="screen active" id="screenSplash">
+    <div class="splash-bg">
+      <div class="splash-orb orb-1"></div>
+      <div class="splash-orb orb-2"></div>
+      <div class="splash-orb orb-3"></div>
+    </div>
+
+    <nav class="navbar">
+      <div class="nav-logo">
+        <div class="nav-logo-mark">
+          <svg viewBox="0 0 40 40" fill="none"><path d="M20 4C11.2 4 4 11.2 4 20s7.2 16 16 16 16-7.2 16-16S28.8 4 20 4z" fill="rgba(163,230,53,0.15)" stroke="#a3e635" stroke-width="1.5"/><path d="M20 10 Q26 16 20 22 Q14 28 20 34" stroke="#a3e635" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M12 20 Q18 14 24 20 Q30 26 36 20" stroke="rgba(163,230,53,0.5)" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+        </div>
+        <span class="nav-logo-text">EcoIA</span>
+      </div>
+      <div class="nav-pills">
+        <span class="nav-pill active">Detector</span>
+        <span class="nav-pill">Base de Datos</span>
+        <span class="nav-pill">Guía</span>
+      </div>
+      <div class="nav-status">
+        <div class="status-ring"></div>
+        <span id="navStatusText">Cargando modelo...</span>
+      </div>
+    </nav>
+
+    <div class="splash-content">
+      <div class="splash-eyebrow">
+        <div class="eyebrow-dot"></div>
+        <span>Sistema de Detección por IA</span>
+      </div>
+
+      <h1 class="splash-title">
+        <span class="title-line">Diagnostica</span>
+        <span class="title-line italic">plagas</span>
+        <span class="title-line">en tus plantas</span>
+      </h1>
+
+      <p class="splash-desc">
+        Combina visión artificial con TensorFlow.js y diagnóstico experto de Gemini AI para identificar exactamente qué insecto daña tus plantas — con plan de acción inmediato.
+      </p>
+
+      <div class="splash-stats">
+        <div class="stat-item">
+          <div class="stat-num">47+</div>
+          <div class="stat-label">Plagas identificables</div>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <div class="stat-num">98%</div>
+          <div class="stat-label">Precisión diagnóstica</div>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <div class="stat-num">&lt;8s</div>
+          <div class="stat-label">Tiempo de análisis</div>
+        </div>
+      </div>
+
+      <button class="btn-cta" id="btnGoUpload">
+        <span>Analizar mi planta</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </button>
+
+      <div class="splash-tech-badges">
+        <div class="tech-badge">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          TensorFlow.js
+        </div>
+        <div class="tech-badge">
+          <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          Gemini 1.5 Flash
+        </div>
+        <div class="tech-badge">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          MobileNet V2
+        </div>
+      </div>
+    </div>
+
+    <div class="splash-visual">
+      <div class="plant-showcase">
+        <div class="plant-ring ring-outer"></div>
+        <div class="plant-ring ring-mid"></div>
+        <div class="plant-ring ring-inner"></div>
+        <div class="plant-icon-area">
+          <svg viewBox="0 0 120 120" class="plant-hero-svg">
+            <defs>
+              <radialGradient id="leafFill" cx="40%" cy="30%" r="70%">
+                <stop offset="0%" stop-color="#86efac"/>
+                <stop offset="100%" stop-color="#16a34a"/>
+              </radialGradient>
+              <radialGradient id="bugFill" cx="50%" cy="30%" r="60%">
+                <stop offset="0%" stop-color="#fca5a5"/>
+                <stop offset="100%" stop-color="#dc2626"/>
+              </radialGradient>
+            </defs>
+            <!-- Tallo -->
+            <path d="M60 110 Q58 80 55 60" stroke="#15803d" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <!-- Hoja grande -->
+            <path d="M55 60 Q30 40 20 55 Q15 70 40 72 Q52 73 55 60Z" fill="url(#leafFill)" stroke="#15803d" stroke-width="1"/>
+            <!-- Hoja derecha -->
+            <path d="M58 70 Q80 50 95 60 Q105 72 88 80 Q72 85 58 70Z" fill="url(#leafFill)" stroke="#15803d" stroke-width="1"/>
+            <!-- Hoja superior -->
+            <path d="M52 45 Q42 25 50 15 Q60 8 65 25 Q68 38 55 42Z" fill="url(#leafFill)" stroke="#15803d" stroke-width="1"/>
+            <!-- Mordidas en hoja grande -->
+            <path d="M30 55 Q26 52 23 55" stroke="#15803d" stroke-width="1" fill="#0f172a"/>
+            <path d="M25 63 Q21 61 20 64" stroke="#15803d" stroke-width="1" fill="#0f172a"/>
+            <!-- Bicho -->
+            <g class="bug-anim">
+              <ellipse cx="40" cy="67" rx="6" ry="4.5" fill="url(#bugFill)" stroke="#991b1b" stroke-width="0.8"/>
+              <circle cx="35" cy="67" r="3" fill="#b91c1c" stroke="#991b1b" stroke-width="0.8"/>
+              <circle cx="34" cy="66" r="0.8" fill="white"/>
+              <line x1="33" y1="65" x2="30" y2="62" stroke="#991b1b" stroke-width="0.8"/>
+              <line x1="33" y1="67" x2="29" y2="67" stroke="#991b1b" stroke-width="0.8"/>
+              <line x1="37" y1="70" x2="35" y2="73" stroke="#991b1b" stroke-width="0.8"/>
+              <line x1="41" y1="70" x2="40" y2="73" stroke="#991b1b" stroke-width="0.8"/>
+              <line x1="44" y1="70" x2="46" y2="73" stroke="#991b1b" stroke-width="0.8"/>
+            </g>
+            <!-- Puntos scan animados -->
+            <circle cx="40" cy="67" r="10" fill="none" stroke="#a3e635" stroke-width="0.8" opacity="0.6" class="scan-pulse"/>
+          </svg>
+        </div>
+        <div class="scan-line"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       PANTALLA 2 — UPLOAD / ANÁLISIS
+  ══════════════════════════════════════════ -->
+  <div class="screen" id="screenUpload">
+    <nav class="navbar">
+      <div class="nav-logo">
+        <div class="nav-logo-mark">
+          <svg viewBox="0 0 40 40" fill="none"><path d="M20 4C11.2 4 4 11.2 4 20s7.2 16 16 16 16-7.2 16-16S28.8 4 20 4z" fill="rgba(163,230,53,0.15)" stroke="#a3e635" stroke-width="1.5"/><path d="M20 10 Q26 16 20 22 Q14 28 20 34" stroke="#a3e635" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+        </div>
+        <span class="nav-logo-text">EcoIA</span>
+      </div>
+      <button class="btn-back" id="btnBackToSplash">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Inicio
+      </button>
+      <button class="btn-apikey-config" id="btnOpenApikey" title="Configurar API Key">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7">
+          <path d="M17.5 10A7.5 7.5 0 1 1 10 2.5"/><path d="M13 2l2 2-5.5 5.5-2.5.5.5-2.5L13 2z"/>
+        </svg>
+        API Key <span id="apikeyStatusDot" class="apikey-status-dot dot-missing"></span>
+      </button>
+    </nav>
+
+    <div class="upload-layout">
+      <!-- LEFT: Upload Zone -->
+      <div class="upload-left">
+        <div class="section-tag">Paso 1 — Imagen</div>
+        <h2 class="section-title">Sube la foto<br/><em>de tu planta</em></h2>
+        <p class="section-desc">Fotografía la zona dañada: mordidas, manchas, insectos visibles o decoloración en las hojas.</p>
+
+        <!-- Drop Zone -->
+        <div class="drop-zone" id="dropZone">
+          <input type="file" id="fileInput" accept="image/*" hidden />
+          <div class="drop-zone-inner" id="dropZoneInner">
+            <div class="drop-icon-wrap">
+              <svg viewBox="0 0 64 64" fill="none">
+                <rect x="8" y="8" width="48" height="48" rx="12" fill="rgba(163,230,53,0.08)" stroke="rgba(163,230,53,0.3)" stroke-width="1.5" stroke-dasharray="4 3"/>
+                <path d="M32 20 L32 40 M24 28 L32 20 L40 28" stroke="#a3e635" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M20 44 h24" stroke="rgba(163,230,53,0.4)" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="drop-text">
+              <span class="drop-title">Arrastra tu imagen aquí</span>
+              <span class="drop-sub">o haz clic para seleccionar</span>
+              <span class="drop-formats">JPG · PNG · WEBP · máx 10 MB</span>
+            </div>
+            <button class="btn-pick-file" onclick="document.getElementById('fileInput').click()">
+              Seleccionar archivo
+            </button>
+          </div>
+
+          <!-- Preview State -->
+          <div class="drop-preview" id="dropPreview" style="display:none;">
+            <img id="previewImg" src="" alt="Preview" />
+            <div class="preview-overlay">
+              <button class="btn-preview-remove" id="btnRemoveImg">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+              <div class="preview-badge">
+                <svg viewBox="0 0 16 16" fill="#a3e635"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm3.7 5.7l-4 4a.75.75 0 01-1.1 0l-2-2a.75.75 0 011.1-1l1.45 1.45 3.45-3.45a.75.75 0 011.1 1z"/></svg>
+                Imagen lista
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TF Model Status -->
+        <div class="model-bar" id="modelBar">
+          <div class="model-bar-icon" id="modelBarIcon">
+            <div class="mini-spinner"></div>
+          </div>
+          <div class="model-bar-info">
+            <span class="model-bar-label" id="modelBarLabel">Cargando TensorFlow.js...</span>
+            <div class="model-bar-track">
+              <div class="model-bar-fill" id="modelBarFill"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Analyze Button -->
+        <button class="btn-analyze" id="btnAnalyze" disabled>
+          <span class="btn-analyze-text">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6M8 11h6"/></svg>
+            Analizar Plaga
+          </span>
+          <span class="btn-analyze-loader" style="display:none;">
+            <div class="btn-spinner"></div>
+            Analizando...
+          </span>
+        </button>
+      </div>
+
+      <!-- RIGHT: Info & Tips -->
+      <div class="upload-right">
+        <div class="tips-card">
+          <div class="tips-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#a3e635" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span>Consejos para mejor análisis</span>
+          </div>
+          <div class="tips-list">
+            <div class="tip-row">
+              <div class="tip-num">01</div>
+              <div class="tip-body">
+                <strong>Luz natural</strong>
+                <span>Fotografía con buena iluminación, preferiblemente luz natural</span>
+              </div>
+            </div>
+            <div class="tip-row">
+              <div class="tip-num">02</div>
+              <div class="tip-body">
+                <strong>Zona dañada</strong>
+                <span>Enfoca en las hojas con mordidas, manchas o decoloración visible</span>
+              </div>
+            </div>
+            <div class="tip-row">
+              <div class="tip-num">03</div>
+              <div class="tip-body">
+                <strong>Insecto visible</strong>
+                <span>Si ves el insecto, inclúyelo en la foto para mayor precisión</span>
+              </div>
+            </div>
+            <div class="tip-row">
+              <div class="tip-num">04</div>
+              <div class="tip-body">
+                <strong>Nitidez</strong>
+                <span>Imagen nítida y en foco. Evita fotos movidas o borrosas</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TF Predictions Panel -->
+        <div class="tf-panel" id="tfPanel" style="display:none;">
+          <div class="tf-panel-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#a3e635" stroke-width="1.5"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>
+            <span>Análisis TensorFlow.js</span>
+          </div>
+          <div class="tf-bars" id="tfBars"></div>
+        </div>
+
+        <!-- System Info -->
+        <div class="sys-info-card">
+          <div class="sys-info-row">
+            <span class="sys-info-key">Motor IA</span>
+            <span class="sys-info-val">Gemini 1.5 Flash</span>
+          </div>
+          <div class="sys-info-row">
+            <span class="sys-info-key">Visión</span>
+            <span class="sys-info-val">MobileNet V2</span>
+          </div>
+          <div class="sys-info-row">
+            <span class="sys-info-key">Especialidad</span>
+            <span class="sys-info-val">Fitopatología</span>
+          </div>
+          <div class="sys-info-row">
+            <span class="sys-info-key">Idioma</span>
+            <span class="sys-info-val">Español</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       PANTALLA 3 — LOADING
+  ══════════════════════════════════════════ -->
+  <div class="screen" id="screenLoading">
+    <div class="loading-bg">
+      <div class="loading-orb"></div>
+    </div>
+    <div class="loading-content">
+      <div class="loading-dna">
+        <div class="dna-strand">
+          <div class="dna-node" style="--i:0;"></div>
+          <div class="dna-node" style="--i:1;"></div>
+          <div class="dna-node" style="--i:2;"></div>
+          <div class="dna-node" style="--i:3;"></div>
+          <div class="dna-node" style="--i:4;"></div>
+          <div class="dna-node" style="--i:5;"></div>
+          <div class="dna-node" style="--i:6;"></div>
+        </div>
+      </div>
+      <h2 class="loading-title">Analizando tu planta</h2>
+      <p class="loading-step" id="loadingStep">Preparando análisis...</p>
+      <!-- Rate limit countdown (hidden by default) -->
+      <div class="rate-limit-box" id="rateLimitBox" style="display:none;">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+          <circle cx="10" cy="10" r="9"/><path d="M10 6v4l2.5 2.5"/>
+        </svg>
+        <span><span id="rateLimitMsg">Límite de Gemini alcanzado. Reintentando en</span> <strong id="rateLimitCountdown">--</strong>s...</span>
+      </div>
+      <div class="loading-steps-track">
+        <div class="loading-steps-fill" id="loadingFill"></div>
+      </div>
+      <div class="loading-steps-labels">
+        <span>TensorFlow</span>
+        <span>Gemini AI</span>
+        <span>Diagnóstico</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       PANTALLA 4 — RESULTADOS
+  ══════════════════════════════════════════ -->
+  <div class="screen" id="screenResults">
+    <nav class="navbar">
+      <div class="nav-logo">
+        <div class="nav-logo-mark">
+          <svg viewBox="0 0 40 40" fill="none"><path d="M20 4C11.2 4 4 11.2 4 20s7.2 16 16 16 16-7.2 16-16S28.8 4 20 4z" fill="rgba(163,230,53,0.15)" stroke="#a3e635" stroke-width="1.5"/><path d="M20 10 Q26 16 20 22 Q14 28 20 34" stroke="#a3e635" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+        </div>
+        <span class="nav-logo-text">EcoIA</span>
+      </div>
+      <button class="btn-back" id="btnNewAnalysis">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>
+        Nueva Foto
+      </button>
+    </nav>
+
+    <div class="results-layout" id="resultsLayout">
+      <!-- Se inserta dinámicamente -->
+    </div>
+  </div>
+
+  <!-- ══ MODAL API KEY ══ -->
+  <div class="apikey-modal-overlay" id="apikeyOverlay">
+    <div class="apikey-modal">
+
+      <div class="apikey-modal-header">
+        <div class="apikey-modal-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+          </svg>
+        </div>
+        <div>
+          <h2>Configura tu API Key de Claude</h2>
+          <p>Necesaria para el diagnóstico con Claude AI</p>
+        </div>
+      </div>
+
+      <div class="apikey-steps">
+        <div class="apikey-step">
+          <span class="apikey-step-num">1</span>
+          <span>Ve a <a href="https://console.anthropic.com/settings/api-keys" target="_blank">console.anthropic.com</a></span>
+        </div>
+        <div class="apikey-step">
+          <span class="apikey-step-num">2</span>
+          <span>En <strong>API Keys</strong> haz clic en <strong>Create Key</strong></span>
+        </div>
+        <div class="apikey-step">
+          <span class="apikey-step-num">3</span>
+          <span>Pégala aquí — se guarda solo en tu navegador</span>
+        </div>
+      </div>
+
+      <div class="apikey-limits">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="8" cy="8" r="7"/><path d="M8 5v3l2 2"/>
+        </svg>
+        <span>La API de Claude requiere <strong>saldo en tu cuenta</strong>. Sin rate limit agresivo.</span>
+      </div>
+
+      <div class="apikey-field">
+        <label for="apikeyInput">TU API KEY DE CLAUDE</label>
+        <div class="apikey-input-wrap">
+          <input type="password" id="apikeyInput" placeholder="sk-ant-api03-..." spellcheck="false" autocomplete="off" />
+          <button class="apikey-eye" id="apikeyEye" title="Mostrar clave">
+            <svg id="apikeyEyeIcon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+              <path d="M1 10s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7z"/><circle cx="10" cy="10" r="3"/>
+            </svg>
+          </button>
+        </div>
+        <span class="apikey-hint" id="apikeyHint"></span>
+      </div>
+
+      <button class="apikey-save-btn" id="apikeySaveBtn">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M5 10l4 4 6-6"/>
+        </svg>
+        Guardar y continuar
+      </button>
+
+      <div class="apikey-bottom-row">
+        <button class="apikey-skip-btn" id="apikeySkipBtn">Cerrar</button>
+        <button class="apikey-delete-btn" id="apikeyDeleteBtn">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 9h8l1-9"/>
+          </svg>
+          Borrar key
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══ TOAST ══ -->
+  <div class="toast" id="toast">
+    <span class="toast-icon" id="toastIcon">✓</span>
+    <span class="toast-msg" id="toastMsg">Mensaje</span>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
